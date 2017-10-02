@@ -1,0 +1,11 @@
+add fn: "load boot sector"
+add fn: "load from file"
+add fn: "save to file"
+in addition to DLOAD and RUN, add GO64+LOAD (and maybe even BURSTLOAD-GO64-RUN)
+
+add data for c64 programs: RAM BANK to run in, command to send to disc
+	(nothing, u0>m0 or u0>m1)
+
+grey out useless data (c64 stuff when program type is c128)
+
+replace input() with something better

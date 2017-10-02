@@ -1,0 +1,113 @@
+
+--  see end of file for latest changes  --
+
+
+someday1994	version 2.1, german
+
+27 Oct 1996	version 3.1, german
+		has bug: DCLOSE assumes unit 8 (was kept for over a decade)
+
+       1999	released on GO64 disc 1999-07b (corrupted)
+
+10 Aug 1999	translated to english
+		still has bug: DCLOSE assumes 8
+		added homepage url
+		removed version number!?
+
+20 Dec 1999	version 3.20
+		still has bug: DCLOSE assumes 8
+		no longer sets colors
+		uses +/- to change device address
+		added CMD type string (unused!)
+
+21 Dec 1999	better support for local charset
+		still has bug: DCLOSE assumes 8
+		small change concerning alternative device address
+		new bug: "destroy" never finds a boot block
+
+21 Dec 1999	indented program info
+		still has bug: DCLOSE assumes 8
+		still has bug: "destroy" never finds a boot block
+
+ 9 Jan 2000	version 3.22
+		still has bug: DCLOSE assumes 8
+		still has bug: "destroy" never finds a boot block
+		goes FAST if on vdc
+		waits for vsync after switching to local charset
+
+17 Jan 2000	version 3.23, changed only a string
+		still has bug: DCLOSE assumes 8
+		still has bug: "destroy" never finds a boot block
+		released on GO64 disc 2000-02a
+			(without being mentioned in magazine)
+		released on GO64 disc 2000-03a
+			(protected and therefore unloadable on 1571)
+		put on home page, with german docs
+
+ 2 Jul 2000	version 3.24, auto-detects drive/partition type
+		fixed bug: "destroy" finds boot blocks again
+		still has bug: DCLOSE assumes 8
+		recognizes (but does not support) CMD native
+		new bug: after refusing to work, uses wrong GOTO
+		new bug: "destroy" always uses 1541/1571 algo
+		uses ESC-d instead of ESC-j ESC-q to delete "BOOTING"
+		released on Wanderdisk #15 in Jul 2000
+
+28 Oct 2006	version 3.25, supports CMD native and extended native
+		still has bug: DCLOSE assumes 8
+		still has bug: after refusing to work, uses wrong GOTO
+		still has bug: "destroy" always uses 1541/1571 algo
+		changed "may result in data loss" to "will [...]"
+
+27 Feb 2010	accidental FORK:
+		made another (different) version 3.25 from version 3.24
+		fixed bug: no DCLOSE anymore!
+		still has bug: after refusing to work, uses wrong GOTO
+		still has bug: "destroy" always uses 1541/1571 algo
+		renamed "edit" to "enter"
+		renamed "test" to "display"
+		added "load" menu entry but no function for it
+
+12 Oct 2012	version 4, merged useful parts of fork and then some:
+		fixed bug: no DCLOSE anymore! (as in fork)
+		fixed bug: after refusing to work, now uses correct GOTO
+		still has bug: "destroy" always uses 1541/1571 algo
+		renamed "edit" to "enter" (as in fork)
+		renamed "test" to "display" (as in fork)
+		using ESC-p ESC-j instead of ESC-d to delete "BOOTING"
+
+13 Oct 2012	version 5, now as petcat source with Makefile
+		fixed bug: "destroy" now checks drive/partition type
+		rearranged program parts
+		removed shift-space characters
+		"send disc command" is now on '@' key
+		added more explanatory text output
+		uploaded to forum64.de
+
+15 May 2013	converted old (obsolete) german docs to UTF-8
+28 Jun 2013	added TODO stuff
+ 7 Dec 2013	more TODO
+
+ 4 Feb 2014	version 6
+		added experimental SD2IEC (FAT) support
+
+12 Feb 2014	version 7
+		added experimental SFD/8050/8250 support
+
+ 6 Feb 2017	version 8
+		fixed bug where block was tried to be allocated even
+		if not needed (CMD, SD2IEC)
+		removed home page url
+
+14 Sep 2017	started work on C version
+		found bug: "block cbm/shift" is correct in boot sector, but wrong when testing!
+
+ 2 Oct 2017	released C version (v11):
+		old text is not displayed when entering new
+		text entry no longer in quote mode; control codes are handled immediately
+		full error handling ("device not present" no longer stops prg)
+		added another "set buffer pointer to zero" and removed a useless one
+		can now force uppercase as well, not only lowercase
+		uses CTRL-D to scan bus for next drive
+		writes "created by macbootmake version XYZ" to end of boot block
+		file is now loaded from boot device (which may not be 8) by default
