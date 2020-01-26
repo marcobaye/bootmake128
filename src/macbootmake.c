@@ -637,7 +637,7 @@ static bool drive_get_dpt(void)
 
 // build the new boot block in memory
 static const char	part1[]	= {'c', 'b', 'm', 0, 0, 0, 0 };
-static const char	part2[]	= {0, 0, 0xa2};	// text terminator, filename terminator?, "ldx#"
+static const char	part2[]	= {0, 0, 0xa2};	// text terminator, filename terminator, "ldx#"
 static const char	part3[]	= {0xa0, 0x0b, 0x4c, 0xa5, 0xaf};	// "ldy#$0b:jmp$afa5"
 static void bootblock_build(void)
 {
