@@ -1,9 +1,9 @@
-// this is an attempt to convert basic7 to c.
+// converted from basic7.
 // source was macbootmake, version 8 from 2017-02-06
 //
-#define VERSION	"11"	// keep v9 for "last" basic version
-#define DATE	"2 Oct"
-#define YEAR	"2017"
+#define VERSION	"11"
+#define DATE	"8 Sep"
+#define YEAR	"2020"
 
 #include <cbm.h>
 #include <errno.h>	// only for _oserror
@@ -14,10 +14,11 @@
 // limits for device address:
 #define DEVICE_MIN	4
 #define DEVICE_MAX	30
-#define ALTDEVICE_MIN	3	// this value is used for "use boot device"!
-#define ALTDEVICE_MAX	30
+#define ALTDEVICE_MIN	4
+#define ALTDEVICE_MAX	31	// 30 is really the maximum for device numbers, but we use 31 as special value, see below
+#define ALTDEVICE_NONE	31	// this value is used for "use boot device", i.e. "do NOT use an alternative device"
 // convenience macros
-#define printat(x, y, msg)	do{gotoxy(x, y);print(msg);}while(0)
+#define printat(x, y, msg)	do { gotoxy(x, y); print(msg); } while (0)
 #define CHROUT(c)		cbm_k_bsout(c)
 #define ON_VDC			PEEK(215)
 // logical file numbers
@@ -38,6 +39,7 @@
 #define REVSOFF		"\x92"
 #define HOME		"\x13"
 // control codes (cc65 seems to garble some of them when inside strings, so don't put them there)
+#define c_CONTROL_D	4	// used in menu for "scan for next device"
 #define c_BELL		0x07	// C128 only!
 #define c_LOCK		0x0b	// C128 only! C64 uses 8!
 #define c_UNLOCK	0x0c	// C128 only! C64 uses 9!
@@ -114,13 +116,13 @@ static void __fastcall__ call_basic_rom(int address)
 	POKE(0x3fd, 0x4c);	// JMP opcode
 	POKEW(0x3fe, address);
 	asm(
-		"	lda $ff00\n"
-		"	pha\n"
-		"	lda #0\n"
-		"	sta $ff00\n"	// full ROMs
-		"	jsr $03fd\n"	// jump to "JMP address" at $3fd,$3fe,$3ff
-		"	pla\n"
-		"	sta $ff00\n"
+"		lda $ff00	\n"
+"		pha		\n"
+"		lda #0		\n"
+"		sta $ff00	\n"	// full ROMs
+"		jsr $03fd	\n"	// jump to "JMP address" at $3fd, $3fe, $3ff
+"		pla		\n"
+"		sta $ff00	\n"
 	);
 }
 
@@ -130,16 +132,14 @@ static void __fastcall__ vsync_wait(uint8_t frames)
 	// this code relies on cc65's argument stack handling...
 	(void) frames;	// inhibit compiler warning about unused parameter
 	asm(
-		"	ldy #0\n"
-		"	lda (sp), y\n"	// read frame count
-		"	tax\n"
-		"loop1:\n"
-		"	lda $a2\n"
-		"loop2:\n"	// loop until time change
-		"	cmp $a2\n"
-		"	beq loop2\n"
-		"	dex\n"
-		"	bne loop1\n"
+"		ldy #0				\n"
+"		lda (sp), y			\n"	// read frame count
+"		tax				\n"
+"loop1:			lda $a2			\n"	// loop until time change
+"loop2:				cmp $a2		\n"
+"				beq loop2"	"\n"
+"			dex			\n"
+"			bne loop1"		"\n"
 	);
 }
 
@@ -147,23 +147,22 @@ static void __fastcall__ vsync_wait(uint8_t frames)
 static void colors_system(void)
 {
 	asm(
-		"	lda #13\n"	// vic: bright green border
-		"	sta $d020\n"
-		"	lda #11\n"	// vic: dark gray background
-		"	sta $d021\n"
-		"	lda #$f0\n"	// vdc: black background
-		"	ldx #26\n"
-		"	jsr $cdcc\n"	// store A in vdc reg X
+"		lda #13		\n"	// vic: bright green border
+"		sta $d020	\n"
+"		lda #11		\n"	// vic: dark gray background
+"		sta $d021	\n"
+"		lda #$f0	\n"	// vdc: black background
+"		ldx #26		\n"
+"		jsr $cdcc	\n"	// store A in vdc reg X
 		// set text colors
-		"	lda #7\n"	// A = vdc color: bright cyan (rGBI)
-		"	ldx #13\n"	// X = vic color: bright green
-		"	ldy 215\n"	// ON_VDC? then swap
-		"	bne skipswap\n"
-		"		txa\n"	// A = vic color
-		"		ldx #7\n"	// X = vdc color
-		"skipswap:\n"
-		"	sta $f1\n"	// set current screen's text color
-		"	stx $0a51\n"	// set other screen's text color
+"		lda #7		\n"	// A = vdc color: bright cyan (rGBI)
+"		ldx #13		\n"	// X = vic color: bright green
+"		ldy 215		\n"	// ON_VDC? then swap
+"		bne set"	"\n"
+"			txa	\n"	// A = vic color
+"			ldx #7	\n"	// X = vdc color
+"set:		sta $f1		\n"	// set current screen's text color
+"		stx $0a51	\n"	// set other screen's text color
 	);
 	call_basic_rom(0x77c7);	// go SLOW and enable vic display
 }
@@ -174,20 +173,20 @@ static void colors_own(void)
 	if (ON_VDC) {
 		fast();
 		asm(
-			"	lda #$f0\n"	// vdc: black background
-			"	ldx #26\n"
-			"	jsr $cdcc\n"	// store A in vdc reg X
-			"	lda #$e\n"	// vdc color: light gray (dark white)
-			"	sta $f1\n"	// set current screen's text color
+"			lda #$f0	\n"	// vdc: black background
+"			ldx #26		\n"
+"			jsr $cdcc	\n"	// store A in vdc reg X
+"			lda #$e		\n"	// vdc color: light gray (dark white)
+"			sta $f1		\n"	// set current screen's text color
 		);
 	} else {
 		asm(
-			"	lda #6\n"	// vic: blue border
-			"	ldx #0\n"	// vic: black background
-			"	sta $d020\n"
-			"	stx $d021\n"
-			"	lda #$f\n"	// vic: light gray text
-			"	sta $f1\n"	// set current screen's text color
+"			lda #6		\n"	// vic: blue border
+"			ldx #0		\n"	// vic: black background
+"			sta $d020	\n"
+"			stx $d021	\n"
+"			lda #$f		\n"	// vic: light gray text
+"			sta $f1		\n"	// set current screen's text color
 		);
 		call_basic_rom(0x77c7);	// go SLOW and enable vic display
 	}
@@ -252,14 +251,14 @@ static void __fastcall__ gotoxy(uint8_t xx, uint8_t yy)
 	(void) xx;	// inhibit compiler warnings
 	(void) yy;	// about unused parameters
 	asm(
-		"	ldy #0\n"
-		"	lda (sp), y\n"	// read yy (column)
-		"	tax\n"
-		"	iny\n"
-		"	lda (sp), y\n"	// read xx (line)
-		"	tay\n"
-		"	clc\n"		// clear C to set position
-		"	jsr $fff0\n"
+"		ldy #0		\n"
+"		lda (sp), y	\n"	// read yy (column)
+"		tax		\n"
+"		iny		\n"
+"		lda (sp), y	\n"	// read xx (line)
+"		tay		\n"
+"		clc		\n"	// clear C to set position
+"		jsr $fff0	\n"
 	);
 }
 
@@ -267,11 +266,11 @@ static void __fastcall__ gotoxy(uint8_t xx, uint8_t yy)
 static uint8_t key_with_crsr(void)
 {
 	asm(
-		"	jsr $cd6f\n"	// activates cursor
-		"loop1:		lda $d0\n"	// anything in key buffer?
-		"		ora $d1\n"	//	or F-key buffer?
-		"		beq loop1\n"
-		"	jsr $cd9f\n"	// will hide cursor, but A must be non-zero to really switch it off
+"		jsr $cd6f		\n"	// activates cursor
+"loop:			lda $d0		\n"	// anything in key buffer?
+"			ora $d1		\n"	//	or F-key buffer?
+"			beq loop"	"\n"
+"		jsr $cd9f		\n"	// will hide cursor, but A must be non-zero to really switch it off
 	);
 	return cbm_k_getin();
 }
@@ -394,14 +393,14 @@ static void __fastcall__ buf_add_uint8dec99max(uint8_t byte)
 	// this code relies on cc65's argument stack handling...
 	(void) byte;	// inhibit compiler warning
 	asm(
-		"\tldy #2\n"
-		"\tlda (sp), y\n"	// read parameter
-		"\tjsr $f9fb\n"		//$f9fb converts uint8 in A to two ascii digits in XXAA (so only works in 0.99 range)
-		"\tldy #1\n"
-		"\tsta (sp), y\n"	// write result[1]
-		"\ttxa\n"
-		"\tdey\n"
-		"\tsta (sp), y\n"	// write result[0]
+"		ldy #2		\n"
+"		lda (sp), y	\n"	// read parameter
+"		jsr $f9fb	\n"	// $f9fb converts uint8 in A to two ascii digits in XXAA (so only works in 0..99 range)
+"		ldy #1		\n"
+"		sta (sp), y	\n"	// write result[1]
+"		txa		\n"
+"		dey		\n"
+"		sta (sp), y	\n"	// write result[0]
 	);
 	// inhibit leading zero
 	if (result[0] == '0')
@@ -411,7 +410,7 @@ static void __fastcall__ buf_add_uint8dec99max(uint8_t byte)
 }
 
 // add prefix codes (according to config) and actual message
-static const char	string_epej[]	= {c_ESCAPE, 'p', c_ESCAPE, 'j', 0};
+static const char	string_epej[]	= { c_ESCAPE, 'p', c_ESCAPE, 'j', 0 };
 static void buf_add_message(void)
 {
 	if (conf.remove_boot_msg)
@@ -432,7 +431,7 @@ static void buf_add_message(void)
 }
 
 // display boot message
-static const char	string_uuhhc[]	= {c_UPPERCASE, c_UNLOCK, c_HOME, c_HOME, c_CLEAR, 0};
+static const char	string_uuhhc[]	= { c_UPPERCASE, c_UNLOCK, c_HOME, c_HOME, c_CLEAR, 0 };
 static void message_display(void)
 {
 	static uint8_t	ii;
@@ -631,14 +630,15 @@ static bool drive_get_dpt(void)
 	print(COLOR_STD " format.\n");
 	if (dpt->valid)
 		return 0;	// ok
+
 	print("Sorry.\n\n");	// don't mess with unknown formats
 	return 1;	// fail
 }
 
 // build the new boot block in memory
-static const char	part1[]	= {'c', 'b', 'm', 0, 0, 0, 0 };
-static const char	part2[]	= {0, 0, 0xa2};	// text terminator, filename terminator, "ldx#"
-static const char	part3[]	= {0xa0, 0x0b, 0x4c, 0xa5, 0xaf};	// "ldy#$0b:jmp$afa5"
+static const char	part1[]	= { 'c', 'b', 'm', 0, 0, 0, 0 };
+static const char	part2[]	= { 0, 0, 0xa2 };	// text terminator, filename terminator, "ldx #"
+static const char	part3[]	= { 0xa0, 0x0b, 0x4c, 0xa5, 0xaf };	// "ldy #$0b : jmp $afa5"
 static void bootblock_build(void)
 {
 	// put version msg at end of buffer
@@ -670,7 +670,7 @@ static void bootblock_build(void)
 	}
 	buf_add_string(filename_buf);
 	buf_add_string("\",u");
-	if (conf.alternative_device == ALTDEVICE_MIN) {
+	if (conf.alternative_device == ALTDEVICE_NONE) {
 		buf_add_string("(peE(186))");
 	} else {
 		buf_add_uint8dec99max(conf.alternative_device);
@@ -712,8 +712,10 @@ static uint8_t __fastcall__ block_usercmd(uint8_t action, const char *ts)
 	buf_add_string(ts);
 	if (send_buf_as_cmd())
 		return 1;	// fail
+
 	if (drive_get_status())
 		return 1;	// fail
+
 	return 0;	// ok
 }
 
@@ -775,7 +777,7 @@ static bool bootblock_check(void)
 	}
 	if (ret != 3) {
 		print(COLOR_EMPH "Error: Unexpected EOF." COLOR_STD "\n");
-		return 1;
+		return 1;	// fail
 	}
 	bootblock_active = (signature[0] == 'c') && (signature[1] == 'b') && (signature[2] == 'm');
 	return 0;	// ok
@@ -994,8 +996,8 @@ static void program_setfilename(void)
 }
 
 // call function in sidescreen
-static const char	string_et[]	= {c_ESCAPE, 't', 0};
-static const char	string_is[]	= {c_CLEAR, c_LOWERCASE, c_HOME, c_HOME, 0};
+static const char	string_et[]	= { c_ESCAPE, 't', 0 };
+static const char	string_is[]	= { c_CLEAR, c_LOWERCASE, c_HOME, c_HOME, 0 };
 static void __fastcall__ in_sidescreen(void (*fn)(void))
 {
 	// enter sidescreen
@@ -1018,7 +1020,7 @@ static const char	leave_alone[]	= COLOR_EMPH "leave alone";
 static const char	activate_it[]	= COLOR_EMPH "activate it";
 static const char	remove_it[]	= COLOR_EMPH "remove it";
 static const char	block_it[]	= COLOR_EMPH "block it";
-static const char	line_tail[]	= COLOR_STD "\x1bq";	//{c_ESCAPE, 'q', 0};
+static const char	line_tail[]	= COLOR_STD "\x1bq";	// { c_ESCAPE, 'q', 0 };
 #define CONF_X	21	// x position of config values
 #define CONF_Y	17	// y position of top config value
 
@@ -1107,7 +1109,7 @@ static void filename_redraw(void)
 static void altdevice_redraw(void)
 {
 	gotoxy(CONF_X, CONF_Y + 6);
-	if (conf.alternative_device == ALTDEVICE_MIN) {
+	if (conf.alternative_device == ALTDEVICE_NONE) {
 		print(COLOR_EMPH "boot device");
 	} else {
 		buf_used = 0;
@@ -1133,7 +1135,7 @@ static void chosenbank_redraw(void)
 
 // redraw whole screen
 // CR at start ensures quote mode is off
-static char	string_init[]	= {13, 27, 'n', c_LOCK, c_LOWERCASE, c_HOME, c_HOME, c_CLEAR, 0};
+static char	string_init[]	= { 13, 27, 'n', c_LOCK, c_LOWERCASE, c_HOME, c_HOME, c_CLEAR, 0 };
 static void screen_redraw(void)
 {
 	print(string_init);
@@ -1187,19 +1189,7 @@ static void menu_loop(void)
 			previous = key;
 		key = cbm_k_getin();
 		switch (key) {
-/*		case '-':	// decrement device number
-			--chosen_device;
-			if (chosen_device < DEVICE_MIN)
-				chosen_device = DEVICE_MAX;
-			device_redraw();
-			break;
-		case '+':	// increment device number
-			++chosen_device;
-			if (chosen_device > DEVICE_MAX)
-				chosen_device = DEVICE_MIN;
-			device_redraw();
-			break;
-*/		case 4:	// CTRL-d for "scan for next device"
+		case c_CONTROL_D:	// scan for next device
 			drive_next();
 			device_redraw();
 			break;
@@ -1267,7 +1257,7 @@ static void menu_loop(void)
 		case 's':
 			in_sidescreen(bootblock_create);
 			break;
-//FIXME - add 'c' for "check"?
+//FIXME - change 'r' (remove) to 'c' (check)? and then ask user what to do (remove/load-to-buffer/ignore)?
 		case 'r':
 			in_sidescreen(bootblock_destroy);
 			break;
@@ -1285,7 +1275,9 @@ static void menu_loop(void)
 		case 'x':
 			if (previous == c_ESCAPE) {
 				CHROUT(c_CLEAR);
-				asm("\tjsr $c02a\n");	// switch video
+				asm(
+"					jsr $c02a	\n"	// switch video
+				);
 				colors_own();	// init screen colors
 				redraw_screen = 1;
 			}
@@ -1306,7 +1298,7 @@ int main(void)
 	chosen_device = PEEK(186);
 	if (chosen_device < DEVICE_MIN)
 		chosen_device = 8;
-	conf.alternative_device = ALTDEVICE_MIN;
+	conf.alternative_device = ALTDEVICE_NONE;
 	conf.chosen_bank = 15;
 	redraw_screen = 1;
 	quit_program = 0;
@@ -1322,4 +1314,3 @@ int main(void)
 	printat(0, 24, "\n\nCu...\n\n");
 	return 0;
 }
-
