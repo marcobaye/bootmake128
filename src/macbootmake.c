@@ -129,6 +129,15 @@ static void __fastcall__ call_basic_rom(int address)
 // wait a number of vic frames
 static void __fastcall__ vsync_wait(uint8_t frames)
 {
+	uint8_t	x;
+
+	do {
+		// wait for interrupt
+		x = PEEK(0xa2);
+		while (PEEK(0xa2) == x)
+			;
+	} while (--frames);
+#if 0
 	// this code relies on cc65's argument stack handling...
 	(void) frames;	// inhibit compiler warning about unused parameter
 	asm(
@@ -141,29 +150,27 @@ static void __fastcall__ vsync_wait(uint8_t frames)
 "			dex			\n"
 "			bne loop1"		"\n"
 	);
+#endif
 }
 
 // reset both screens to system's default colors
 static void colors_system(void)
 {
+	POKE(0xd020, 13);	// vic: bright green border
+	POKE(0xd021, 11);	// vic: dark gray background
 	asm(
-"		lda #13		\n"	// vic: bright green border
-"		sta $d020	\n"
-"		lda #11		\n"	// vic: dark gray background
-"		sta $d021	\n"
 "		lda #$f0	\n"	// vdc: black background
 "		ldx #26		\n"
 "		jsr $cdcc	\n"	// store A in vdc reg X
-		// set text colors
-"		lda #7		\n"	// A = vdc color: bright cyan (rGBI)
-"		ldx #13		\n"	// X = vic color: bright green
-"		ldy 215		\n"	// ON_VDC? then swap
-"		bne set"	"\n"
-"			txa	\n"	// A = vic color
-"			ldx #7	\n"	// X = vdc color
-"set:		sta $f1		\n"	// set current screen's text color
-"		stx $0a51	\n"	// set other screen's text color
 	);
+	// set text colors
+	if (ON_VDC) {
+		POKE(0xf1, 7);		// current (vdc) color: bright cyan (rGBI)
+		POKE(0x0a51, 13);	// other (vic) color: bright green
+	} else {
+		POKE(0xf1, 13);		// current (vic) color: bright green
+		POKE(0x0a51, 7);	// other (vdc) color: bright cyan (rGBI)
+	}
 	call_basic_rom(0x77c7);	// go SLOW and enable vic display
 }
 
@@ -176,18 +183,12 @@ static void colors_own(void)
 "			lda #$f0	\n"	// vdc: black background
 "			ldx #26		\n"
 "			jsr $cdcc	\n"	// store A in vdc reg X
-"			lda #$e		\n"	// vdc color: light gray (dark white)
-"			sta $f1		\n"	// set current screen's text color
 		);
+		POKE(0xf1, 14);		// current (vdc) text color: light gray (dark white)
 	} else {
-		asm(
-"			lda #6		\n"	// vic: blue border
-"			ldx #0		\n"	// vic: black background
-"			sta $d020	\n"
-"			stx $d021	\n"
-"			lda #$f		\n"	// vic: light gray text
-"			sta $f1		\n"	// set current screen's text color
-		);
+		POKE(0xd020, 6);	// vic: blue border
+		POKE(0xd021, 0);	// vic: black background
+		POKE(0xf1, 15);		// current (vic) text color: light gray
 		call_basic_rom(0x77c7);	// go SLOW and enable vic display
 	}
 }
