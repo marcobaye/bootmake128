@@ -129,13 +129,9 @@ static void __fastcall__ call_basic_rom(int address)
 // wait a number of vic frames
 static void __fastcall__ vsync_wait(uint8_t frames)
 {
-	uint8_t	x;
-
 	do {
 		// wait for interrupt
-		x = PEEK(0xa2);
-		while (PEEK(0xa2) == x)
-			;
+		waitvsync();
 	} while (--frames);
 #if 0
 	// this code relies on cc65's argument stack handling...
