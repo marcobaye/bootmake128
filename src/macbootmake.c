@@ -702,15 +702,10 @@ static uint8_t __fastcall__ set_buffer_pointer(const char *byte_offset)
 	return send_buf_as_cmd();
 }
 
-// send block command (read/write) to disk drive (channels must be open)
-// track and sector must be given as string (space- or semicolon-separated)
-static uint8_t __fastcall__ block_usercmd(uint8_t action, const char *ts)
+// send buffer contents to command channel and display drive status
+// return true on error
+static uint8_t send_and_check(void)
 {
-	buf_used = 0;	// clear buffer
-	buf_add_byte('u');
-	buf_add_byte(action);
-	buf_add_string(" " XSTR(SA_BUF) " 0 ");	// 0 is drive
-	buf_add_string(ts);
 	if (send_buf_as_cmd())
 		return 1;	// fail
 
@@ -720,6 +715,18 @@ static uint8_t __fastcall__ block_usercmd(uint8_t action, const char *ts)
 	return 0;	// ok
 }
 
+// send block command (read/write) to disk drive (channels must be open)
+// track and sector must be given as string (space- or semicolon-separated)
+static uint8_t __fastcall__ block_usercmd(uint8_t action, const char *ts)
+{
+	buf_used = 0;	// clear buffer
+	buf_add_byte('u');
+	buf_add_byte(action);
+	buf_add_string(" " XSTR(SA_BUF) " 0 ");	// 0 is drive
+	buf_add_string(ts);
+	return send_and_check();
+}
+
 // tell disk drive to read a block into buffer
 // track and sector must be given as string (space- or semicolon-separated)
 #define block_read(ts)	block_usercmd('1', ts)
@@ -727,6 +734,26 @@ static uint8_t __fastcall__ block_usercmd(uint8_t action, const char *ts)
 // tell disk drive to write buffer to block
 // track and sector must be given as string (space- or semicolon-separated)
 #define block_write(ts)	block_usercmd('2', ts)
+
+// try to allocate t1s0
+// return true on error
+static bool bootblock_allocate(void)
+{
+	print("Allocating boot block.\n");
+	buf_used = 0;
+	buf_add_string("b-a 0 1 0");
+	return send_and_check();
+}
+
+// try to free t1s0
+// return true on error
+static bool bootblock_free(void)
+{
+	print("Deallocating boot block.\n");
+	buf_used = 0;
+	buf_add_string("b-f 0 1 0");
+	return send_and_check();
+}
 
 // check whether boot block is allocated and active:
 // result is in global vars; returns true on error!
@@ -759,7 +786,7 @@ static bool bootblock_check(void)
 		}
 	} else {
 		allocation_state = AS_RESERVED;
-		// FIXME - tell user why we don't care about allocation?
+		// FIXME - tell user why we don't care about allocation!
 	}
 	// check whether boot block is active:
 	print("Reading boot block.\n");
@@ -833,13 +860,7 @@ static void bba_create(void)
 		goto prompt;
 
 	if ((dpt->fiddle_with_bam) && (allocation_state == AS_FREE)) {
-		print("Allocating boot block.\n");
-		buf_used = 0;
-		buf_add_string("b-a 0 1 0");
-		if (send_buf_as_cmd())
-			goto prompt;
-
-		if (drive_get_status())
+		if (bootblock_allocate())
 			goto prompt;
 	}
 	print("Done.\n");
@@ -847,7 +868,7 @@ prompt:	key_ask();
 }
 
 // check/destroy boot block ("inner" function)
-static void bba_destroy(void)
+static void bba_check(void)
 {
 	static int	ret;
 	static uint8_t	zero	= 0;
@@ -857,15 +878,18 @@ static void bba_destroy(void)
 
 	if (bootblock_active == 0) {
 		print("No active boot block.\n");
+		// TODO - if allocated, ask user whether to free?
 		goto prompt;
 	}
 	print(
 		"Boot block found.\n"
 		"Remove it?\n"
 	);
+	// FIXME - if block is free, ask user whether to allocate!
 	if (chance_to_cancel())
 		return;
 
+	// ok, now destroy it
 	if (set_buffer_pointer("0"))
 		goto prompt;
 
@@ -887,13 +911,7 @@ static void bba_destroy(void)
 // FIXME - ask user, maybe they want to keep it allocated for later use!
 // but then, how do we recognize this the next time and do not scare user about data loss?
 // maybe use special "disabled" boot sector contents?
-		print("Deallocating boot block.\n");
-		buf_used = 0;
-		buf_add_string("b-f 0 1 0");
-		if (send_buf_as_cmd())
-			goto prompt;
-
-		if (drive_get_status())
+		if (bootblock_free())
 			goto prompt;
 	}
 	print("Done.\n");
@@ -931,15 +949,15 @@ fail:	//CLOSE
 }
 
 // create boot block
-static void bootblock_create(void)
+static void create_new_bb(void)
 {
 	bootblock_action(bba_create);
 }
 
 // check/destroy boot block
-static void bootblock_destroy(void)
+static void check_for_existing_bb(void)
 {
-	bootblock_action(bba_destroy);
+	bootblock_action(bba_check);
 }
 
 // display directory (calls basic rom) and then drive status
@@ -1151,8 +1169,8 @@ static void screen_redraw(void)
 		"  e    Enter message text\n"
 		"  d    Display message text\n"
 		"  s    Store new boot block\n"
-		"  r    Remove existing boot block\n"
-		"  $    Show directory\n"
+		"  r    Remove existing boot block\n"	// TODO - rename to "check"
+		"  $    Show directory\n"	// TODO - also allow F1 and F3!
 		"  @    Send disc command\n"
 		"ESC-x  Toggle screen\n"
 		"  i    Show program info\n"
@@ -1256,11 +1274,11 @@ static void menu_loop(void)
 			message_display();
 			break;
 		case 's':
-			in_sidescreen(bootblock_create);
+			in_sidescreen(create_new_bb);
 			break;
 //FIXME - change 'r' (remove) to 'c' (check)? and then ask user what to do (remove/load-to-buffer/ignore)?
 		case 'r':
-			in_sidescreen(bootblock_destroy);
+			in_sidescreen(check_for_existing_bb);
 			break;
 		case '$':
 			in_sidescreen(show_directory);
