@@ -2,8 +2,8 @@
 // source was macbootmake, version 8 from 2017-02-06
 //
 #define VERSION	"11"
-#define DATE	"8 Sep"
-#define YEAR	"2020"
+#define DATE	"27 May"
+#define YEAR	"2021"
 
 #include <cbm.h>
 #include <errno.h>	// only for _oserror
@@ -479,7 +479,7 @@ static bool chance_to_cancel(void)
 // 
 static void __fastcall__ error_decode(uint8_t code)
 {
-	print(COLOR_EMPH "\n");	//CHROUT('\n');
+	print(COLOR_EMPH "\n  ");	//CHROUT('\n');
 	switch (code) {
 // these could be used from ROM {
 	case 1:
@@ -564,7 +564,7 @@ static bool drive_get_status(void)
 	if ((ret > 0) && (buffer[ret - 1] == 13))
 		--ret;
 	buffer[ret] = '\0';	// terminate
-	print("\nStatus: \"\x1b\x1b");
+	print("  Status: \"\x1b\x1b");
 	if (buffer[0] != '0')
 		print(COLOR_EMPH);
 	print(buffer);
@@ -596,7 +596,7 @@ static bool drive_get_dpt(void)
 	if (ret == 0) {
 		// unexpected EOF - this happens with file system access under VICE
 		// or with "21,read error"s or "drive not ready"
-		print(COLOR_EMPH "Error: No data." COLOR_STD "\n");
+		print(COLOR_EMPH "  Error: No data." COLOR_STD "\n");
 		drive_get_status();	// ignore return value, we failed anyway
 		return 1;	// fail
 	}
@@ -626,7 +626,7 @@ static bool drive_get_dpt(void)
 		dpt = &dpt_unknown;
 		break;
 	}
-	print("Drive/partition has " COLOR_EMPH);
+	print("  Drive/partition has " COLOR_EMPH);
 	print(dpt->name);
 	print(COLOR_STD " format.\n");
 	if (dpt->valid)
@@ -779,10 +779,10 @@ static bool bootblock_check(void)
 		// boot block is sector 0, so check lsb:
 		if (allocation_byte & 1) {
 			allocation_state = AS_FREE;
-			print("Boot block is not allocated.\n");
+			print("  Boot block is not allocated.\n");
 		} else {
 			allocation_state = AS_ALLOCATED;
-			print("Boot block is allocated.\n");
+			print("  Boot block is allocated.\n");
 		}
 	} else {
 		allocation_state = AS_RESERVED;
@@ -804,7 +804,7 @@ static bool bootblock_check(void)
 		return 1;	// fail
 	}
 	if (ret != 3) {
-		print(COLOR_EMPH "Error: Unexpected EOF." COLOR_STD "\n");
+		print(COLOR_EMPH "  Error: Unexpected EOF." COLOR_STD "\n");
 		return 1;	// fail
 	}
 	bootblock_active = (signature[0] == 'c') && (signature[1] == 'b') && (signature[2] == 'm');
@@ -853,7 +853,7 @@ static void bba_create(void)
 		goto prompt;
 	}
 	if (ret != buf_used) {
-		print(COLOR_EMPH "Error: Could not write all data." COLOR_STD);
+		print(COLOR_EMPH "  Error: Could not write all data." COLOR_STD);
 		goto prompt;
 	}
 	if (block_write("1 0"))
@@ -877,12 +877,12 @@ static void bba_check(void)
 		goto prompt;
 
 	if (bootblock_active == 0) {
-		print("No active boot block.\n");
+		print("  No active boot block.\n");
 		// TODO - if allocated, ask user whether to free?
 		goto prompt;
 	}
 	print(
-		"Boot block found.\n"
+		"  Boot block found.\n"
 		"Remove it?\n"
 	);
 	// FIXME - if block is free, ask user whether to allocate!
@@ -899,14 +899,14 @@ static void bba_check(void)
 		goto prompt;
 	}
 	if (ret == 0) {
-		print(COLOR_EMPH "Error: Could not write all data." COLOR_STD);
+		print(COLOR_EMPH "  Error: Could not write all data." COLOR_STD);
 		goto prompt;
 	}
 	//print#LFN_CMD, "b-p " XSTR(SA_BUF) " 0"	this is useless, as i now realize. a data becker book said to do this...
 	if (block_write("1 0"))
 		goto prompt;
 
-	print("Boot block deactivated.\n");
+	print("  Boot block deactivated.\n");
 	if ((dpt->fiddle_with_bam) && (allocation_state == AS_ALLOCATED)) {
 // FIXME - ask user, maybe they want to keep it allocated for later use!
 // but then, how do we recognize this the next time and do not scare user about data loss?
