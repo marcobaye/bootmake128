@@ -1,3 +1,5 @@
+add fn to allocate boot sector without writing it!
+	(for use after VALIDATE)
 add fn: "load boot sector"
 add fn: "load from file"
 add fn: "save to file"
